@@ -228,11 +228,13 @@
       // Prevent context menu on canvas so ctrl-click works
       canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-      // --- Per-frame update (edit this to run your simulation) ---
+      // --- Per-frame update (calls simulation module) ---
       function update() {
-        // Example: you can call setTemp(x, y, value) here to change cells.
+        updateGrid();
       }
-
+    </script>
+    <script src="simulation.js"></script>
+    <script>
       // --- Game loop ---
       function gameLoop() {
         update();
