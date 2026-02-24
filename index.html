@@ -47,6 +47,8 @@
   <body>
     <h1>Temperature Grid</h1>
     <div id="controls">
+      <label for="tempSelect" style="margin-right: 8px">Temperature:</label>
+      <select id="tempSelect" style="padding: 8px; font-size: 16px; border-radius: 6px; border: none"></select>
       <button id="btnRandom">Randomly Fill Grid</button>
     </div>
     <canvas id="gridCanvas"></canvas>
@@ -174,6 +176,57 @@
         }
       }
       document.getElementById("btnRandom").addEventListener("click", randomFill);
+
+      // --- Mouse painting ---
+      let painting = false;
+      let paintValue = 100;
+
+      function paintAt(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = GRID / rect.width;
+        const scaleY = GRID / rect.height;
+        const cx = Math.floor((e.clientX - rect.left) * scaleX);
+        const cy = Math.floor((e.clientY - rect.top) * scaleY);
+        const R = 30;
+        for (let dy = -R; dy <= R; dy++) {
+          for (let dx = -R; dx <= R; dx++) {
+            if (dx * dx + dy * dy <= R * R) {
+              setTemp(cx + dx, cy + dy, paintValue);
+            }
+          }
+        }
+      }
+
+      // --- Populate temperature dropdown ---
+      const tempSelect = document.getElementById("tempSelect");
+      for (let v = 1; v <= 100; v++) {
+        const opt = document.createElement("option");
+        opt.value = v;
+        opt.textContent = v;
+        if (v === 100) opt.selected = true;
+        tempSelect.appendChild(opt);
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        painting = true;
+        if (e.shiftKey) paintValue = 0;
+        else if (e.ctrlKey) paintValue = 50;
+        else paintValue = parseInt(tempSelect.value, 10);
+        paintAt(e);
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!painting) return;
+        paintAt(e);
+      });
+
+      window.addEventListener("mouseup", () => {
+        painting = false;
+      });
+
+      // Prevent context menu on canvas so ctrl-click works
+      canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
       // --- Per-frame update (edit this to run your simulation) ---
       function update() {
