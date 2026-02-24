@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smoke</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a1a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        font-family: sans-serif;
+        color: #eee;
+      }
+      h1 {
+        margin-bottom: 12px;
+      }
+      #controls {
+        margin-bottom: 12px;
+      }
+      #controls button {
+        padding: 10px 24px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 6px;
+        background: #e06030;
+        color: #fff;
+        transition: background 0.2s;
+      }
+      #controls button:hover {
+        background: #c04820;
+      }
+      canvas {
+        border: 4px solid #ccc;
+        image-rendering: pixelated;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Temperature Grid</h1>
+    <div id="controls">
+      <button id="btnRandom">Randomly Fill Grid</button>
+    </div>
+    <canvas id="gridCanvas"></canvas>
+
+    <script>
+      // --- Configuration ---
+      const GRID = 1000;
+      const CELL_PX = 1; // each cell = 1 pixel on the off-screen buffer
+      const CANVAS_DISPLAY = 800; // CSS display size of the canvas
+
+      // --- Canvas setup ---
+      const canvas = document.getElementById("gridCanvas");
+      canvas.width = GRID;
+      canvas.height = GRID;
+      canvas.style.width = CANVAS_DISPLAY + "px";
+      canvas.style.height = CANVAS_DISPLAY + "px";
+      const ctx = canvas.getContext("2d");
+
+      // --- Temperature array (1-based values 1..100, 0 = empty/white) ---
+      const temp = new Uint8Array(GRID * GRID); // flat array, row-major
+
+      // --- Weather-overlay colour map (index 1..100) ---
+      // Stops: 1 white → 20 blue → 40 cyan → 55 green → 70 yellow → 85 orange → 100 red
+      function buildColourLUT() {
+        const stops = [
+          { t: 1, r: 255, g: 255, b: 255 },
+          { t: 20, r: 60, g: 80, b: 255 },
+          { t: 40, r: 0, g: 200, b: 255 },
+          { t: 55, r: 0, g: 220, b: 0 },
+          { t: 70, r: 255, g: 255, b: 0 },
+          { t: 85, r: 255, g: 140, b: 0 },
+          { t: 100, r: 220, g: 0, b: 0 },
+        ];
+        const lut = new Uint8Array(101 * 3); // indices 0..100, each 3 bytes (r,g,b)
+        // index 0 → white (unused cell)
+        lut[0] = 255;
+        lut[1] = 255;
+        lut[2] = 255;
+        let si = 0;
+        for (let t = 1; t <= 100; t++) {
+          while (si < stops.length - 2 && t > stops[si + 1].t) si++;
+          const a = stops[si],
+            b = stops[si + 1];
+          const f = (t - a.t) / (b.t - a.t);
+          const idx = t * 3;
+          lut[idx] = Math.round(a.r + (b.r - a.r) * f);
+          lut[idx + 1] = Math.round(a.g + (b.g - a.g) * f);
+          lut[idx + 2] = Math.round(a.b + (b.b - a.b) * f);
+        }
+        return lut;
+      }
+      const colourLUT = buildColourLUT();
+
+      // --- ImageData buffer for fast pixel writes ---
+      const imgData = ctx.createImageData(GRID, GRID);
+      const pixels = imgData.data; // Uint8ClampedArray, 4 bytes per pixel
+
+      // --- Drawing helpers ---
+      function drawCells() {
+        for (let i = 0, len = GRID * GRID; i < len; i++) {
+          const v = temp[i];
+          const ci = v * 3;
+          const pi = i * 4;
+          pixels[pi] = colourLUT[ci];
+          pixels[pi + 1] = colourLUT[ci + 1];
+          pixels[pi + 2] = colourLUT[ci + 2];
+          pixels[pi + 3] = 255;
+        }
+        ctx.putImageData(imgData, 0, 0);
+      }
+
+      function drawGrid() {
+        // Thin lines every 1 unit would be too dense at 1 px/cell,
+        // so we draw minor lines every 10 and major lines every 100.
+        ctx.save();
+
+        // Minor grid lines (every 10 cells)
+        ctx.strokeStyle = "rgba(0,0,0,0.12)";
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (let i = 10; i < GRID; i += 10) {
+          if (i % 100 === 0) continue; // skip majors, drawn separately
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, GRID);
+          ctx.moveTo(0, i);
+          ctx.lineTo(GRID, i);
+        }
+        ctx.stroke();
+
+        // Major grid lines (every 100 cells)
+        ctx.strokeStyle = "rgba(0,0,0,0.3)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 100; i < GRID; i += 100) {
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, GRID);
+          ctx.moveTo(0, i);
+          ctx.lineTo(GRID, i);
+        }
+        ctx.stroke();
+
+        // Border
+        ctx.strokeStyle = "rgba(0,0,0,0.7)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(1, 1, GRID - 2, GRID - 2);
+
+        ctx.restore();
+      }
+
+      // --- Public API: set a cell temperature ---
+      function setTemp(x, y, value) {
+        if (x < 0 || x >= GRID || y < 0 || y >= GRID) return;
+        temp[y * GRID + x] = Math.max(0, Math.min(100, value | 0));
+      }
+
+      function getTemp(x, y) {
+        if (x < 0 || x >= GRID || y < 0 || y >= GRID) return 0;
+        return temp[y * GRID + x];
+      }
+
+      // --- Random fill ---
+      function randomFill() {
+        for (let i = 0, len = GRID * GRID; i < len; i++) {
+          temp[i] = 1 + Math.floor(Math.random() * 100); // 1..100
+        }
+      }
+      document.getElementById("btnRandom").addEventListener("click", randomFill);
+
+      // --- Per-frame update (edit this to run your simulation) ---
+      function update() {
+        // Example: you can call setTemp(x, y, value) here to change cells.
+      }
+
+      // --- Game loop ---
+      function gameLoop() {
+        update();
+        drawCells();
+        drawGrid();
+        requestAnimationFrame(gameLoop);
+      }
+      gameLoop();
+    </script>
+  </body>
+</html>
