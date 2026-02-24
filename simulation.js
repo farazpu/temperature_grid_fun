@@ -3,7 +3,7 @@
  * =========================
  *
  * Contract:
- *   - Has access to globals: GRID, temp, setTemp, getTemp
+ *   - Has access to globals: GRID_W, GRID_H, temp, setTemp, getTemp
  *   - Must export a function `updateGrid()` that is called once per frame.
  *
  * Replace this file (or create alternatives with the same contract) to
@@ -96,13 +96,15 @@ const NEIGHBOURS = [
  */
 function updateGrid() {
   // 1. Snapshot the current state so reads are unaffected by writes.
-  if (!oldTemp) oldTemp = new Uint8Array(GRID * GRID);
+  if (!oldTemp || oldTemp.length !== GRID_W * GRID_H) {
+    oldTemp = new Uint8Array(GRID_W * GRID_H);
+  }
   oldTemp.set(temp);
 
   // 2. Iterate every cell.
-  for (let y = 0; y < GRID; y++) {
-    for (let x = 0; x < GRID; x++) {
-      const idx = y * GRID + x;
+  for (let y = 0; y < GRID_H; y++) {
+    for (let x = 0; x < GRID_W; x++) {
+      const idx = y * GRID_W + x;
       const cellTemp = oldTemp[idx];
 
       // Accumulate net heat transfer from all valid neighbours.
@@ -113,9 +115,9 @@ function updateGrid() {
         const ny = y + NEIGHBOURS[n][1];
 
         // Skip out-of-bounds neighbours.
-        if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) continue;
+        if (nx < 0 || nx >= GRID_W || ny < 0 || ny >= GRID_H) continue;
 
-        const neighbourTemp = oldTemp[ny * GRID + nx];
+        const neighbourTemp = oldTemp[ny * GRID_W + nx];
         const diff = neighbourTemp - cellTemp; // signed difference
 
         // No transfer needed when temperatures are equal.

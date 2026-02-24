@@ -47,28 +47,59 @@
   <body>
     <h1>Temperature Grid</h1>
     <div id="controls">
-      <label for="tempSelect" style="margin-right: 8px">Temperature:</label>
+      <label for="gridW">W:</label>
+      <input id="gridW" type="number" min="10" max="1000" value="1000" style="width: 60px; padding: 6px; font-size: 14px; border-radius: 6px; border: none" />
+      <label for="gridH">H:</label>
+      <input id="gridH" type="number" min="10" max="1000" value="1000" style="width: 60px; padding: 6px; font-size: 14px; border-radius: 6px; border: none; margin-right: 12px" />
+      <button id="btnResize">Resize</button>
+      <label for="tempSelect" style="margin-left: 12px; margin-right: 8px">Temperature:</label>
       <select id="tempSelect" style="padding: 8px; font-size: 16px; border-radius: 6px; border: none"></select>
       <button id="btnRandom">Randomly Fill Grid</button>
+      <label for="brushSize" style="margin-left: 12px; margin-right: 8px">Brush:</label>
+      <input id="brushSize" type="number" min="1" max="100" value="30" style="width: 55px; padding: 6px; font-size: 14px; border-radius: 6px; border: none" />
     </div>
     <canvas id="gridCanvas"></canvas>
 
     <script>
       // --- Configuration ---
-      const GRID = 1000;
-      const CELL_PX = 1; // each cell = 1 pixel on the off-screen buffer
-      const CANVAS_DISPLAY = 800; // CSS display size of the canvas
+      let GRID_W = 1000; // grid width  (columns)
+      let GRID_H = 1000; // grid height (rows)
+      const CANVAS_MAX = 800; // longest CSS display edge
 
       // --- Canvas setup ---
       const canvas = document.getElementById("gridCanvas");
-      canvas.width = GRID;
-      canvas.height = GRID;
-      canvas.style.width = CANVAS_DISPLAY + "px";
-      canvas.style.height = CANVAS_DISPLAY + "px";
       const ctx = canvas.getContext("2d");
 
-      // --- Temperature array (1-based values 1..100, 0 = empty/white) ---
-      const temp = new Uint8Array(GRID * GRID); // flat array, row-major
+      // --- Mutable state that is rebuilt on resize ---
+      let temp = new Uint8Array(GRID_W * GRID_H);
+      let imgData = ctx.createImageData(GRID_W, GRID_H);
+      let pixels = imgData.data;
+
+      function applyCanvasSize() {
+        canvas.width = GRID_W;
+        canvas.height = GRID_H;
+        // Scale so the larger axis = CANVAS_MAX, preserving aspect ratio
+        const scale = CANVAS_MAX / Math.max(GRID_W, GRID_H);
+        canvas.style.width = Math.round(GRID_W * scale) + "px";
+        canvas.style.height = Math.round(GRID_H * scale) + "px";
+      }
+      applyCanvasSize();
+
+      /** Resize the grid, clearing all data. */
+      function resizeGrid(w, h) {
+        GRID_W = Math.max(10, Math.min(1000, w | 0));
+        GRID_H = Math.max(10, Math.min(1000, h | 0));
+        temp = new Uint8Array(GRID_W * GRID_H);
+        imgData = ctx.createImageData(GRID_W, GRID_H);
+        pixels = imgData.data;
+        applyCanvasSize();
+      }
+
+      document.getElementById("btnResize").addEventListener("click", () => {
+        const w = parseInt(document.getElementById("gridW").value, 10);
+        const h = parseInt(document.getElementById("gridH").value, 10);
+        resizeGrid(w, h);
+      });
 
       // --- Weather-overlay colour map (index 1..100) ---
       // Stops: 1 white → 20 blue → 40 cyan → 55 green → 70 yellow → 85 orange → 100 red
@@ -102,13 +133,9 @@
       }
       const colourLUT = buildColourLUT();
 
-      // --- ImageData buffer for fast pixel writes ---
-      const imgData = ctx.createImageData(GRID, GRID);
-      const pixels = imgData.data; // Uint8ClampedArray, 4 bytes per pixel
-
       // --- Drawing helpers ---
       function drawCells() {
-        for (let i = 0, len = GRID * GRID; i < len; i++) {
+        for (let i = 0, len = GRID_W * GRID_H; i < len; i++) {
           const v = temp[i];
           const ci = v * 3;
           const pi = i * 4;
@@ -121,20 +148,22 @@
       }
 
       function drawGrid() {
-        // Thin lines every 1 unit would be too dense at 1 px/cell,
-        // so we draw minor lines every 10 and major lines every 100.
         ctx.save();
 
         // Minor grid lines (every 10 cells)
         ctx.strokeStyle = "rgba(0,0,0,0.12)";
         ctx.lineWidth = 0.5;
         ctx.beginPath();
-        for (let i = 10; i < GRID; i += 10) {
-          if (i % 100 === 0) continue; // skip majors, drawn separately
-          ctx.moveTo(i, 0);
-          ctx.lineTo(i, GRID);
-          ctx.moveTo(0, i);
-          ctx.lineTo(GRID, i);
+        for (let i = 10; i < Math.max(GRID_W, GRID_H); i += 10) {
+          if (i % 100 === 0) continue;
+          if (i < GRID_W) {
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, GRID_H);
+          }
+          if (i < GRID_H) {
+            ctx.moveTo(0, i);
+            ctx.lineTo(GRID_W, i);
+          }
         }
         ctx.stroke();
 
@@ -142,36 +171,40 @@
         ctx.strokeStyle = "rgba(0,0,0,0.3)";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        for (let i = 100; i < GRID; i += 100) {
-          ctx.moveTo(i, 0);
-          ctx.lineTo(i, GRID);
-          ctx.moveTo(0, i);
-          ctx.lineTo(GRID, i);
+        for (let i = 100; i < Math.max(GRID_W, GRID_H); i += 100) {
+          if (i < GRID_W) {
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, GRID_H);
+          }
+          if (i < GRID_H) {
+            ctx.moveTo(0, i);
+            ctx.lineTo(GRID_W, i);
+          }
         }
         ctx.stroke();
 
         // Border
         ctx.strokeStyle = "rgba(0,0,0,0.7)";
         ctx.lineWidth = 3;
-        ctx.strokeRect(1, 1, GRID - 2, GRID - 2);
+        ctx.strokeRect(1, 1, GRID_W - 2, GRID_H - 2);
 
         ctx.restore();
       }
 
       // --- Public API: set a cell temperature ---
       function setTemp(x, y, value) {
-        if (x < 0 || x >= GRID || y < 0 || y >= GRID) return;
-        temp[y * GRID + x] = Math.max(0, Math.min(100, value | 0));
+        if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return;
+        temp[y * GRID_W + x] = Math.max(0, Math.min(100, value | 0));
       }
 
       function getTemp(x, y) {
-        if (x < 0 || x >= GRID || y < 0 || y >= GRID) return 0;
-        return temp[y * GRID + x];
+        if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return 0;
+        return temp[y * GRID_W + x];
       }
 
       // --- Random fill ---
       function randomFill() {
-        for (let i = 0, len = GRID * GRID; i < len; i++) {
+        for (let i = 0, len = GRID_W * GRID_H; i < len; i++) {
           temp[i] = 1 + Math.floor(Math.random() * 100); // 1..100
         }
       }
@@ -183,11 +216,11 @@
 
       function paintAt(e) {
         const rect = canvas.getBoundingClientRect();
-        const scaleX = GRID / rect.width;
-        const scaleY = GRID / rect.height;
+        const scaleX = GRID_W / rect.width;
+        const scaleY = GRID_H / rect.height;
         const cx = Math.floor((e.clientX - rect.left) * scaleX);
         const cy = Math.floor((e.clientY - rect.top) * scaleY);
-        const R = 30;
+        const R = parseInt(document.getElementById("brushSize").value, 10) || 1;
         for (let dy = -R; dy <= R; dy++) {
           for (let dx = -R; dx <= R; dx++) {
             if (dx * dx + dy * dy <= R * R) {
