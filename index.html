@@ -41,6 +41,15 @@
       canvas {
         border: 4px solid #ccc;
         image-rendering: pixelated;
+        display: block;
+      }
+      #canvasWrap {
+        position: relative;
+      }
+      #numbersCanvas {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
       }
     </style>
   </head>
@@ -57,8 +66,12 @@
       <button id="btnRandom">Randomly Fill Grid</button>
       <label for="brushSize" style="margin-left: 12px; margin-right: 8px">Brush:</label>
       <input id="brushSize" type="number" min="1" max="100" value="30" style="width: 55px; padding: 6px; font-size: 14px; border-radius: 6px; border: none" />
+      <label style="margin-left: 12px; cursor: pointer"><input id="chkNumbers" type="checkbox" style="margin-right: 4px" />Show Numbers</label>
     </div>
-    <canvas id="gridCanvas"></canvas>
+    <div id="canvasWrap">
+      <canvas id="gridCanvas"></canvas>
+      <canvas id="numbersCanvas"></canvas>
+    </div>
 
     <script>
       // --- Configuration ---
@@ -69,6 +82,8 @@
       // --- Canvas setup ---
       const canvas = document.getElementById("gridCanvas");
       const ctx = canvas.getContext("2d");
+      const numbersCanvas = document.getElementById("numbersCanvas");
+      const nctx = numbersCanvas.getContext("2d");
 
       // --- Mutable state that is rebuilt on resize ---
       let temp = new Uint8Array(GRID_W * GRID_H);
@@ -80,8 +95,15 @@
         canvas.height = GRID_H;
         // Scale so the larger axis = CANVAS_MAX, preserving aspect ratio
         const scale = CANVAS_MAX / Math.max(GRID_W, GRID_H);
-        canvas.style.width = Math.round(GRID_W * scale) + "px";
-        canvas.style.height = Math.round(GRID_H * scale) + "px";
+        const cssW = Math.round(GRID_W * scale);
+        const cssH = Math.round(GRID_H * scale);
+        canvas.style.width = cssW + "px";
+        canvas.style.height = cssH + "px";
+
+        numbersCanvas.width = cssW;
+        numbersCanvas.height = cssH;
+        numbersCanvas.style.width = cssW + "px";
+        numbersCanvas.style.height = cssH + "px";
       }
       applyCanvasSize();
 
@@ -134,9 +156,14 @@
       const colourLUT = buildColourLUT();
 
       // --- Drawing helpers ---
+      let showNumbers = false;
+      document.getElementById("chkNumbers").addEventListener("change", (e) => {
+        showNumbers = e.target.checked;
+      });
+
       function drawCells() {
         for (let i = 0, len = GRID_W * GRID_H; i < len; i++) {
-          const v = temp[i];
+          const v = showNumbers ? 0 : temp[i];
           const ci = v * 3;
           const pi = i * 4;
           pixels[pi] = colourLUT[ci];
@@ -189,6 +216,32 @@
         ctx.strokeRect(1, 1, GRID_W - 2, GRID_H - 2);
 
         ctx.restore();
+      }
+
+      function drawNumbers() {
+        nctx.clearRect(0, 0, numbersCanvas.width, numbersCanvas.height);
+        if (!showNumbers) return;
+
+        const cellW = numbersCanvas.width / GRID_W;
+        const cellH = numbersCanvas.height / GRID_H;
+        if (cellW < 8 || cellH < 8) return;
+
+        const fontSize = Math.max(8, Math.floor(Math.min(cellW, cellH) * 0.45));
+        nctx.save();
+        nctx.textAlign = "center";
+        nctx.textBaseline = "middle";
+        nctx.font = "bold " + fontSize + "px monospace";
+
+        for (let y = 0; y < GRID_H; y++) {
+          for (let x = 0; x < GRID_W; x++) {
+            const v = temp[y * GRID_W + x];
+            const ci = v * 3;
+            const lum = colourLUT[ci] * 0.299 + colourLUT[ci + 1] * 0.587 + colourLUT[ci + 2] * 0.114;
+            nctx.fillStyle = lum > 140 ? "#000" : "#fff";
+            nctx.fillText(String(v), (x + 0.5) * cellW, (y + 0.5) * cellH);
+          }
+        }
+        nctx.restore();
       }
 
       // --- Public API: set a cell temperature ---
@@ -266,13 +319,14 @@
         updateGrid();
       }
     </script>
-    <script src="simulation.js"></script>
+    <script src="simulation2.js"></script>
     <script>
       // --- Game loop ---
       function gameLoop() {
         update();
         drawCells();
         drawGrid();
+        drawNumbers();
         requestAnimationFrame(gameLoop);
       }
       gameLoop();
