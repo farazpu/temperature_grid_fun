@@ -42,6 +42,7 @@
         border: 4px solid #ccc;
         image-rendering: pixelated;
         display: block;
+        touch-action: none;
       }
       #canvasWrap {
         position: relative;
@@ -266,6 +267,7 @@
       // --- Mouse painting ---
       let painting = false;
       let paintValue = 100;
+      let activePointerId = null;
 
       function paintAt(e) {
         const rect = canvas.getBoundingClientRect();
@@ -293,23 +295,34 @@
         tempSelect.appendChild(opt);
       }
 
-      canvas.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+      canvas.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
         painting = true;
+        activePointerId = e.pointerId;
+        canvas.setPointerCapture(e.pointerId);
         if (e.shiftKey) paintValue = 0;
         else if (e.ctrlKey) paintValue = 50;
         else paintValue = parseInt(tempSelect.value, 10);
         paintAt(e);
       });
 
-      canvas.addEventListener("mousemove", (e) => {
-        if (!painting) return;
+      canvas.addEventListener("pointermove", (e) => {
+        if (!painting || e.pointerId !== activePointerId) return;
         paintAt(e);
       });
 
-      window.addEventListener("mouseup", () => {
+      function stopPainting(e) {
+        if (e.pointerId !== activePointerId) return;
+        if (canvas.hasPointerCapture(e.pointerId)) {
+          canvas.releasePointerCapture(e.pointerId);
+        }
         painting = false;
-      });
+        activePointerId = null;
+      }
+
+      canvas.addEventListener("pointerup", stopPainting);
+      canvas.addEventListener("pointercancel", stopPainting);
+      canvas.addEventListener("pointerleave", stopPainting);
 
       // Prevent context menu on canvas so ctrl-click works
       canvas.addEventListener("contextmenu", (e) => e.preventDefault());
