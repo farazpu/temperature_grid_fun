@@ -57,15 +57,15 @@
     <h1>Temperature Grid</h1>
     <div id="controls">
       <label for="gridW">W:</label>
-      <input id="gridW" type="number" min="10" max="1000" value="1000" style="width: 60px; padding: 6px; font-size: 14px; border-radius: 6px; border: none" />
+      <input id="gridW" type="number" min="10" max="1000" value="200" style="width: 60px; padding: 6px; font-size: 14px; border-radius: 6px; border: none" />
       <label for="gridH">H:</label>
-      <input id="gridH" type="number" min="10" max="1000" value="1000" style="width: 60px; padding: 6px; font-size: 14px; border-radius: 6px; border: none; margin-right: 12px" />
+      <input id="gridH" type="number" min="10" max="1000" value="200" style="width: 60px; padding: 6px; font-size: 14px; border-radius: 6px; border: none; margin-right: 12px" />
       <button id="btnResize">Resize</button>
       <label for="tempSelect" style="margin-left: 12px; margin-right: 8px">Temperature:</label>
       <select id="tempSelect" style="padding: 8px; font-size: 16px; border-radius: 6px; border: none"></select>
       <button id="btnRandom">Randomly Fill Grid</button>
       <label for="brushSize" style="margin-left: 12px; margin-right: 8px">Brush:</label>
-      <input id="brushSize" type="number" min="1" max="100" value="30" style="width: 55px; padding: 6px; font-size: 14px; border-radius: 6px; border: none" />
+      <input id="brushSize" type="number" min="1" max="100" value="5" style="width: 55px; padding: 6px; font-size: 14px; border-radius: 6px; border: none" />
       <label style="margin-left: 12px; cursor: pointer"><input id="chkNumbers" type="checkbox" style="margin-right: 4px" />Show Numbers</label>
     </div>
     <div id="canvasWrap">
@@ -75,8 +75,8 @@
 
     <script>
       // --- Configuration ---
-      let GRID_W = 1000; // grid width  (columns)
-      let GRID_H = 1000; // grid height (rows)
+      let GRID_W = 200; // grid width  (columns)
+      let GRID_H = 200; // grid height (rows)
       const CANVAS_MAX = 800; // longest CSS display edge
 
       // --- Canvas setup ---

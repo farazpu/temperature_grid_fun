@@ -26,7 +26,7 @@
  * Lower values diffuse slower; higher values diffuse faster.
  * Keep <= 0.25 for stable explicit integration on this stencil.
  */
-const DIFFUSIVITY = 0.18;
+const DIFFUSIVITY = 0.2;
 
 // Persistent floating-point state so sub-degree heat can accumulate.
 let stateA = null;
