@@ -4,6 +4,8 @@
 
 A browser-based heat diffusion sandbox on a large paintable grid. Set temperatures, paint hot/cold areas, randomize the field, and watch heat spread in real time.
 
+Try here: [https://farazpu.github.io/temperature_grid_fun/](https://farazpu.github.io/temperature_grid_fun/)
+
 ## Features
 
 - 2D temperature grid (`10x10` to `1000x1000`)
